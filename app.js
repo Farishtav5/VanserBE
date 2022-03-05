@@ -24,6 +24,12 @@ const thicknessRoutes = require("./routes/thickness");
 
 const userRoutes = require("./routes/user");
 
+const baseRoutes = require("./routes/base");
+
+const furnaceRoutes = require("./routes/furnace");
+
+const annealingRoutes = require("./routes/annealing");
+
 // if (NODE_ENV !== 'production') {
 //     app.use(cors())
 //  }
@@ -55,9 +61,9 @@ app.use(cors());
 
 
 
-app.use('/coils', authenticateJWT, coilRoutes);
+app.use('/coils', coilRoutes);
 
-app.use('/slits', authenticateJWT, slittedCoilRoutes);
+app.use('/slits', slittedCoilRoutes);
 
 app.use('/companies', authenticateJWT, companyRoutes);
 
@@ -68,6 +74,12 @@ app.use('/thicknesses', authenticateJWT, thicknessRoutes);
 app.use('/users', authenticateJWT, userRoutes);
 
 app.use('/login', authRoutes);
+
+app.use('/bases', authenticateJWT, baseRoutes);
+
+app.use('/furnaces', authenticateJWT, furnaceRoutes);
+
+app.use('/batches', authenticateJWT, annealingRoutes);
 
 app.get('/', (req, res, next) => {
     res.send("<h1>VM BE App</h1")

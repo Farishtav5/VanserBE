@@ -23,7 +23,31 @@ exports.postAddCoil = (req, res, next) => {
     const coil = new Coil(null, created_at, updated_at, company, brand_no, status, weight, formulated_weight, thickness, width, date, is_avilable)
     coil.save()
     .then(() => {
-        res.send("successfuuly added")
+        Coil.fetchAll({brand_no:brand_no,thickness: thickness,date: date })
+        .then(([rows]) => {
+            if(status === "slitted") {
+                let coilData = {slit_date: data.date, status: data.status};
+                if(data.shift) coilData.slit_shift = data.shift;
+                coilData.id = rows[0].id
+                
+                Coil.update(coilData).then(() => {
+                    data.parent_id = rows[0].id
+                    data.slitted_width = rows[0].width
+                    data.slitted_weight = rows[0].weight
+                    data.slit_no = rows[0].brand_no
+                    data.actual_width = rows[0].width
+                    data.actual_weight = rows[0].weight
+
+                    const slitted_coil = new SlittedCoil(null, data.created_at, data.updated_at, data.parent_id, data.slitted_width, data.slitted_weight, data.status, data.is_avilable, data.slit_no, data.actual_width, data.actual_weight)
+                    slitted_coil.save().then(() => {
+                        res.send({coil: rows[0]})
+                    })
+                })
+                
+            } else res.send({coil: rows[0]})
+            
+        }).catch(err => console.log(err));
+        // res.send("successfuuly added")
     })
     .catch(err => console.log(err));
   };
@@ -40,7 +64,7 @@ exports.postAddCoil = (req, res, next) => {
 
 exports.deleteCoil = (req, res, next) => {
     console.log("req.body", req.body, req.query, req.params)
-    Coil.delete(parseInt(req.params.id)).then(() => {
+    Coil.delete(req.params.id).then(() => {
         res.send("successfully deleted")
     }).catch(err => console.log(err));
 };
@@ -54,12 +78,17 @@ exports.getSlits = (req, res, next) => {
 
 exports.postAddSlits = async (req, res, next) => {
     let data = req.body;
-    let coilData = {slit_date: data.slit_date, status: "in-queue", slit_shift: data.slit_shift, updated_at: data.slittedItems[0].updated_at};
+    if(!data.status) data.status = 'in-queue' 
+    let coilData = {slit_date: data.slit_date, status: data.status, slit_shift: data.slit_shift, updated_at: data.slittedItems[0].updated_at};
     coilData.id = parseInt(req.params.id)
+    if(data.notes) coilData.notes = data.notes
     await Coil.update(coilData)
     for(let i=0; i<data.slittedItems.length; i++) {
         let coil = data.slittedItems[i]
-        const slitted_coil = new SlittedCoil(null, coil.created_at, coil.updated_at, coil.parent_id, coil.slitted_width, coil.slitted_weight, coil.status, coil.is_avilable)
+        if(!coil.slit_no) coil.slit_no = null
+        if(!coil.actual_weight) coil.actual_weight = null
+        if(!coil.actual_width) coil.actual_width = null
+        const slitted_coil = new SlittedCoil(null, coil.created_at, coil.updated_at, coil.parent_id, coil.slitted_width, coil.slitted_weight, coil.status, coil.is_avilable, coil.slit_no, coil.actual_width, coil.actual_weight)
         await slitted_coil.save()
     }
     Coil.getSingleCoil(parseInt(req.params.id)).then(([data]) => {
@@ -79,24 +108,26 @@ exports.updateSlits = async (req, res, next) => {
     if(data.status) coilData.status = data.status;
     if(data.slit_date) coilData.slit_date = data.slit_date;
     if(data.slit_date) coilData.slit_date = data.slit_date;
+    if(data.notes) coilData.notes = data.notes
 
     // let coilData = {slit_date: data.slit_date, slit_shift: data.slit_shift, status: "in-queue", updated_at: data.slittedItems[0].updated_at};
     coilData.id = parseInt(req.params.id)
     await Coil.update(coilData)
     for(let i=0; i<data.slittedItems.length; i++) {
         let coil = data.slittedItems[i]
+        let _data = {id: coil.ID}
+        if(coil.slitted_width) _data.slitted_width = coil.slitted_width
+        if(coil.slitted_weight) _data.slitted_weight = coil.slitted_weight
+        if(coil.actual_width) _data.actual_width = coil.actual_width
+        if(coil.actual_weight) _data.actual_weight = coil.actual_weight
+        if(coil.status) _data.status = coil.status
+        if(coil.slit_no) _data.slit_no = coil.slit_no
         if(coil.ID) {       //ID -> update slit
-            let _data = {id: coil.ID}
-            if(coil.slitted_width) _data.slitted_width = coil.slitted_width
-            if(coil.slitted_weight) _data.slitted_weight = coil.slitted_weight
-            if(coil.actual_width) _data.actual_width = coil.actual_width
-            if(coil.actual_weight) _data.actual_weight = coil.actual_weight
-            if(coil.status) _data.status = coil.status
-            if(coil.slit_no) _data.slit_no = coil.slit_no
             await SlittedCoil.update(_data)
         }
         else { //create slit
-            const slitted_coil = new SlittedCoil(null, coil.created_at, coil.updated_at, coil.parent_id, coil.slitted_width, coil.slitted_weight, coil.status, coil.is_avilable)
+            coil.is_avilable = true
+            const slitted_coil = new SlittedCoil(null, coil.created_at, coil.updated_at, coil.parent_id, coil.slitted_width, coil.slitted_weight, coil.status, coil.is_avilable, coil.slit_no, coil.actual_width, coil.actual_weight)
             await slitted_coil.save()
         }
     }
